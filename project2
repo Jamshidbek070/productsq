@@ -1,0 +1,77 @@
+import sqlite3
+import time
+import random
+import string
+from dataclasses import dataclass
+
+
+def timing_decorator(func):
+
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        print(f"{func.__name__} funksiyasi {end_time - start_time:.4f} sekund ishladi")
+        return result
+
+    return wrapper
+
+
+@dataclass
+class User:
+    id: int
+    name: str
+    email: str
+    age: int
+
+
+class Database:
+    def __init__(self, db_name="users.db"):
+        self.connection = sqlite3.connect(db_name)
+        self.cursor = self.connection.cursor()
+        self.create_table()
+
+    def create_table(self):
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                age INTEGER NOT NULL
+            )
+        ''')
+        self.connection.commit()
+
+    @timing_decorator
+    def add_user(self, name, email, age):
+        try:
+            self.cursor.execute("INSERT INTO users (name, email, age) VALUES (?, ?, ?)", (name, email, age))
+            self.connection.commit()
+            print(f"Foydalanuvchi qo'shildi: {name}, {email}, {age}")
+        except sqlite3.IntegrityError:
+            print(f"Xatolik: {email} allaqachon mavjud!")
+
+    @timing_decorator
+    def get_users(self):
+        self.cursor.execute("SELECT * FROM users")
+        return self.cursor.fetchall()
+
+
+# ===== GENERATOR =====
+def random_user_generator(count=5):
+    for _ in range(count):
+        name = ''.join(random.choices(string.ascii_letters, k=7))
+        email = name.lower() + "@example.com"
+        age = random.randint(18, 60)
+        yield name, email, age
+
+
+if __name__ == "__main__":
+    db = Database()
+
+    for user in random_user_generator(10):
+        db.add_user(*user)
+
+    users = db.get_users()
+    for user in users:
+        print(user)
